@@ -1,18 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: EKS Cluster for Lesson
 
-Metadata:
-  AWS::CloudFormation::Interface:
-    ParameterGroups:
-      - 
-        Label:
-          default: Required parameters
-        Parameters:
-          - ProjectName
-          - VpcId
-          - EKSClusterSubnetIds
-          - EKSWorkerSubnetIds
-
 Parameters:
   ProjectName:
     Type: String
@@ -26,9 +14,46 @@ Parameters:
     Type: CommaDelimitedList
     Default: ""
 
-  EKSWorkerSubnetIds:
+  EKSNodegroupSubnetIds:
     Type: CommaDelimitedList
     Default: ""
+
+  EKSNodegroupInstanceTypes:
+    Type: CommaDelimitedList
+    Default: "t3.medium"
+
+  EKSNodegroupMinSize:
+    Type: Number
+    Default: "1"
+
+  EKSNodegroupDesiredSize:
+    Type: Number
+    Default: "1"
+
+  EKSNodegroupMaxSize:
+    Type: Number
+    Default: "1"
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - 
+        Label:
+          default: General parameters
+        Parameters:
+          - ProjectName
+          - VpcId
+          - EKSClusterSubnetIds
+          - EKSNodegroupSubnetIds
+      - 
+        Label:
+          default: Nodegroup parameters
+        Parameters:
+          - EKSNodegroupInstanceTypes
+          - EKSNodegroupMinSize
+          - EKSNodegroupDesiredSize
+          - EKSNodegroupMaxSize
 
 
 Resources:
@@ -72,13 +97,16 @@ Resources:
 
   EKSCluster:
     Type: AWS::EKS::Cluster
+    DependsOn:
+      - EKSClusterRole
+      - EKSClusterSecurityGroup
     Properties:
       Name: !Sub ${ProjectName}-eks-cluster
       Version: "1.22"
       RoleArn:
         Fn::GetAtt:
           - EKSClusterRole
-          - Arn
+          - EKSClusterSecurityGroup
       ResourcesVpcConfig:
         SecurityGroupIds:
           - !Ref EKSClusterSecurityGroup
@@ -97,10 +125,10 @@ Resources:
 
   # NodeGroup
 
-  EKSWorkerRole:
+  EKSNodegroupRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      RoleName: !Sub ${ProjectName}-EKSWorkerRole
+      RoleName: !Sub ${ProjectName}-EKSNodegroupRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -116,19 +144,29 @@ Resources:
 
   EKSNodegroup:
     Type: 'AWS::EKS::Nodegroup'
+    DependsOn:
+      - EKSCluster
+      - EKSNodegroupRole
     Properties:
       AmiType: BOTTLEROCKET_x86_64
       ClusterName: !Sub ${ProjectName}-eks-cluster
       DiskSize: 20
       InstanceTypes: 
-        - t3.medium
+        !Ref EKSNodegroupInstanceTypes
       NodeRole:
         Fn::GetAtt:
-          - EKSWorkerRole
+          - EKSNodegroupRole
           - Arn
       ScalingConfig:
-        MinSize: 1
-        DesiredSize: 1
-        MaxSize: 1
+        MinSize: !Ref EKSNodegroupMinSize
+        DesiredSize: !Ref EKSNodegroupDesiredSize
+        MaxSize: !Ref EKSNodegroupMaxSize
       Subnets:
-        !Ref EKSWorkerSubnetIds
+        !Ref EKSNodegroupSubnetIds
+
+
+  # TargetGroup
+
+  # ALB SecurityGroup
+
+  # ALB
