@@ -1,0 +1,37 @@
+# Helm Chart Repositories
+# for k8s-master03
+repositories:
+# Stable repo of official helm charts
+- name: "stable"
+  url: "https://charts.helm.sh/stable/"
+# bitnami
+- name: "bitnami"
+  url: "https://charts.bitnami.com/bitnami/"
+# ingress-nginx
+- name: "ingress-nginx"
+  url: "https://kubernetes.github.io/ingress-nginx/"
+
+# The desired states of Helm releases.
+releases:
+  # https://github.com/kubernetes/ingress-nginx/tree/main/charts/ingress-nginx          
+  - name: ingress-nginx
+    namespace: ingress-nginx
+    createNamespace: true
+    chart: ingress-nginx/ingress-nginx
+    version: 4.2.3
+    values:
+      - controller:
+          daemonset:
+            useHostPort: true
+            httpPorts:
+              http: 80
+              https: 443
+          ingressClass: nginx
+          kind: DaemonSet
+          service:
+            type: NodePort
+            nodePorts:
+              http: 30080
+              https: 30443
+          ingressClassResource:
+            default: true
